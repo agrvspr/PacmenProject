@@ -6,6 +6,8 @@ Expected Model interface (adjust to match your actual classes):
     board.is_walkable(x, y) -> bool, False for walls / out of bounds
 """
 
+from player import PlayerModel
+
 DIRECTIONS = {
     curses.KEY_UP: (0, -1),
     curses.KEY_DOWN: (0, 1),
@@ -95,7 +97,7 @@ if __name__ == "__main__":
         stdscr.refresh()
  
     board = DemoBoard()
-    player = DemoPlayer(4, 4)
+    player = PlayerModel(4, 4)
     controller = Controller(board, player)
  
     curses.wrapper(lambda stdscr: controller.run(stdscr, render))
