@@ -73,16 +73,12 @@ class ScoutBrain:
     The smart one, that knows where the player is and the whole board.
     Computes a path to the player through A* and only reveals a small window to the dumb brain.
     """
-    def __init__(self, board, villain, total_goal_items, hint_size=5, min_hint_size=1,
-                 refresh_interval=3):
+    def __init__(self, board, villain, total_goal_items, hint_size=5, min_hint_size=1):
         self.board = board
         self.villain = villain
         self.total_goal_items = total_goal_items
         self.hint_size = hint_size
         self.min_hint_size = min_hint_size
-        self.refresh_interval = max(1, refresh_interval)
-        self._cached_hint = None
-        self._moves_since_refresh = 0
 
     def _heuristic(self, a, b):
         """Manhattan distance - admissible since movement is cardinal-only."""
@@ -137,22 +133,10 @@ class ScoutBrain:
         entry is where the Scout would step next. Empty when the player is
         unreachable, which leaves the Hunter to guess.
         """
-        due_for_refresh = (
-            self._cached_hint is None
-            or self._moves_since_refresh >= self.refresh_interval
-        )
-
-        if due_for_refresh:
-            path = self.find_path(player)
-            if not path or len(path) < 2:
-                self._cached_hint = []
-            else:
-                self._cached_hint = path[1:1 + self.current_hint_size()]
-            self._moves_since_refresh = 1
-        else:
-            self._moves_since_refresh += 1
-
-        return self._cached_hint
+        path = self.find_path(player)
+        if not path or len(path) < 2:
+            return []
+        return path[1:1 + self.current_hint_size()]
 
 
 class HunterBrain:
@@ -244,8 +228,7 @@ class Villain:
     # and holds the last value once everything has been picked up.
     MOVE_PERIODS = (1.5, 1.0, 0.5)
 
-    def __init__(self, x, y, board, total_goal_items=3, move_periods=None,
-                 hint_refresh_interval=3):
+    def __init__(self, x, y, board, total_goal_items=3, move_periods=None):
         self.x = x
         self.y = y
         self.board = board
@@ -254,8 +237,7 @@ class Villain:
         # Set on the first update() so the villain does not fire immediately
         # on a clock that started before the match did.
         self.last_move_time = None
-        self.scout = ScoutBrain(board, self, total_goal_items,
-                                 refresh_interval=hint_refresh_interval)
+        self.scout = ScoutBrain(board, self, total_goal_items)
         self.hunter = HunterBrain()
 
     @property
@@ -296,14 +278,18 @@ class Villain:
 
     def _take_single_move(self, player):
         """
-        One move + one Hunter learning update:
-          1. Ask Scout for a hint region based on current positions.
-          2. Ask Hunter to choose an action from that hint.
-          3. Check the resulting move against board.is_walkable().
-          4. Apply the move if legal, otherwise stay put.
-          5. Compute a reward (based on whether the move followed the
-             Scout's hint) and let Hunter learn from it.
+        One full turn for the villain.
+
+        Once every goal item is gone there's nothing left for the Scout to
+        withhold, so the villain drops the hint/Hunter split and just steps
+        along the shortest path straight at the player -- see
+        _chase_directly(). Until then, it's the usual hint -> Hunter action
+        -> legality check -> reward -> Hunter learning.
         """
+        if remaining_items(self.board, self.total_goal_items) == 0:
+            self._chase_directly(player)
+            return
+
         hint_region = self.scout.get_hint(player)
         state = self.hunter.encode_state((self.x, self.y), hint_region)
         action = self.hunter.choose_action(state)
@@ -319,6 +305,19 @@ class Villain:
         reward = self._compute_reward(moved, hint_region, player)
         next_state = self.hunter.encode_state((self.x, self.y), hint_region)
         self.hunter.update(reward, next_state)
+
+    def _chase_directly(self, player):
+        """
+        Full-information chase, used once all goal items are collected: the
+        villain now knows exactly where the player is at all times, so it
+        takes the next step of the shortest A* route to them every turn.
+        There's no hint to ration and no action for the Hunter to choose, so
+        no reward is computed and no Q-learning update happens here -- the
+        chase is deterministic, not learned.
+        """
+        path = self.scout.find_path(player)
+        if path and len(path) >= 2:
+            self.x, self.y = path[1]
 
     def distance_to(self, player):
         """Manhattan distance from the villain's current position to the player."""
