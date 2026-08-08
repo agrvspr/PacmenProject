@@ -239,14 +239,15 @@ class Villain:
     OFF_HINT_PENALTY = -0.5    # legal move, but ignored the hint
     BLOCKED_PENALTY = -1.0     # walked into a wall
 
-    def __init__(self, x, y, board, total_goal_items=3, max_speed=3, base_speed=1,
+    def __init__(self, x, y, board, total_goal_items=3, base_interval=3, min_interval=1,
                  hint_refresh_interval=3):
         self.x = x
         self.y = y
         self.board = board
         self.total_goal_items = total_goal_items
-        self.max_speed = max_speed
-        self.base_speed = base_speed
+        self.base_interval = base_interval
+        self.min_interval = min_interval
+        self.ticks_waited = 0
         self.scout = ScoutBrain(board, self, total_goal_items,
                                  refresh_interval=hint_refresh_interval)
         self.hunter = HunterBrain()
@@ -255,27 +256,34 @@ class Villain:
     def pos(self):
         return (self.x, self.y)
 
-    def current_speed(self):
+    def move_interval(self):
         """
-        Moves per turn, increasing by 1 for every goal item collected so
-        far (read live from the board), capped at self.max_speed.
+        How many ticks pass between moves, shrinking by one for every goal
+        item collected so far (read live from the board) down to
+        self.min_interval. Fewer ticks between moves means a villain that
+        closes in faster, without ever covering more ground in one step.
         """
         remaining = remaining_items(self.board, self.total_goal_items)
         collected = self.total_goal_items - remaining
-        return min(self.max_speed, self.base_speed + collected)
+        return max(self.min_interval, self.base_interval - collected)
 
-    def take_turn(self, player):
+    def tick(self, player):
         """
-        Runs the villain's full turn, which may be multiple single moves
-        depending on current_speed(). Returns True if the player was caught,
-        and stops immediately when that happens so the villain does not keep
-        moving past a catch.
+        Advance the villain by one tick, which moves it at most one cell.
+
+        Waiting out an interval and then stepping once is what keeps the
+        villain visible: moving several cells inside a single call would read
+        as a teleport on screen, since nothing gets drawn in between.
+
+        Returns True if the player was caught on this tick.
         """
-        for _ in range(self.current_speed()):
-            self._take_single_move(player)
-            if self.caught_player(player):
-                return True
-        return False
+        self.ticks_waited += 1
+        if self.ticks_waited < self.move_interval():
+            return False
+
+        self.ticks_waited = 0
+        self._take_single_move(player)
+        return self.caught_player(player)
 
     def _take_single_move(self, player):
         """

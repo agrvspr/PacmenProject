@@ -6,7 +6,7 @@ Rules implemented here (not owned by any single existing file, so they live
 in a small GameModel class):
   - Player walks a walled grid collecting GOALPIECE ("I") tiles.
   - Villain hunts the player with its Scout/Hunter split-brain AI, and
-    speeds up as goal items are collected (see Villain.current_speed).
+    closes in faster as goal items are collected (see Villain.move_interval).
   - Player wins by collecting every goal item and then stepping onto
     ENDGOAL ("G").
   - Player loses the moment it shares a cell with the villain.
@@ -74,9 +74,27 @@ class GameModel:
             self.game_over = True
             self.won = True
 
+    def _check_caught(self):
+        """
+        The villain wins by sharing a cell with the player. Checked both
+        after the player moves and after the villain does, since either one
+        can be the side that closes the gap.
+        """
+        if self.villain.caught_player(self.player):
+            self.game_over = True
+            self.won = False
+            return True
+        return False
+
     def on_player_moved(self):
         """Call this once, right after Controller.handle_key returns True."""
         if self.game_over:
+            return
+
+        # Walking into the villain counts, and checking it before the villain
+        # moves is also what stops the two from trading cells and passing
+        # straight through each other.
+        if self._check_caught():
             return
 
         self._collect_item_if_present()
@@ -84,16 +102,15 @@ class GameModel:
         if self.game_over:
             return
 
-        if self.villain.take_turn(self.player):
-            self.game_over = True
-            self.won = False
+        self.villain.tick(self.player)
+        self._check_caught()
 
     def status_line(self):
         if self.game_over:
             return "You win! Press q to quit." if self.won else "Caught! Press q to quit."
         return (
             f"Items left: {self.board.remaining_goal_items()} | "
-            f"Villain speed: {self.villain.current_speed()} | "
+            f"Villain moves every {self.villain.move_interval()} turns | "
             "WASD/Arrows to move, q to quit"
         )
 
