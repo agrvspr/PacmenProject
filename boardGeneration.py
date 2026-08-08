@@ -54,3 +54,9 @@ class DemoBoard:
             and 0 <= y < self.SIZE
             and self.grid[y][x] != self.WALL
         )
+
+    def remaining_goal_items(self):
+        """
+        Count GOALPIECE tiles still on the grid.
+        """
+        return sum(row.count(self.GOALPIECE) for row in self.grid)

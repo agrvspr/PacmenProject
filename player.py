@@ -51,6 +51,8 @@ class PlayerModel:
         Restore to the start of a match. Pass a position to move the start
         point; omit it to reuse the current one.
         """
+        if (x is None) != (y is None):
+            raise ValueError("reset() requires both x and y, or neither")
         if x is not None:
             self.start = (x, y)
         self.x, self.y = self.start
