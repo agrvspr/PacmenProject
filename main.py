@@ -6,7 +6,7 @@ Rules implemented here (not owned by any single existing file, so they live
 in a small GameModel class):
   - Player walks a walled grid collecting GOALPIECE ("I") tiles.
   - Villain hunts the player with its Scout/Hunter split-brain AI, and
-    closes in faster as goal items are collected (see Villain.move_interval).
+    closes in faster as goal items are collected (see Villain.move_period).
   - Player wins by collecting every goal item and then stepping onto
     ENDGOAL ("G").
   - Player loses the moment it shares a cell with the villain.
@@ -17,6 +17,7 @@ that runs after every successful player move.
 """
 import curses
 import random
+import time
 
 from boardGeneration import DemoBoard
 from player import PlayerModel
@@ -25,6 +26,10 @@ from controller import Controller, DIRECTIONS, QUIT_KEYS
 
 
 TOTAL_GOAL_ITEMS = 3
+
+# How long the input loop waits for a keypress before redrawing. Short enough
+# that the villain's movement looks smooth, long enough not to spin the CPU.
+FRAME_MS = 30
 
 
 def _open_cells(board):
@@ -91,18 +96,25 @@ class GameModel:
         if self.game_over:
             return
 
-        # Walking into the villain counts, and checking it before the villain
-        # moves is also what stops the two from trading cells and passing
-        # straight through each other.
+        # Walking into the villain counts. The villain no longer moves as
+        # part of the player's turn, so this is the only place a player-side
+        # collision can be noticed.
         if self._check_caught():
             return
 
         self._collect_item_if_present()
         self._check_win()
+
+    def update(self, now):
+        """
+        Advance the villain's clock. Call this every frame, whether or not
+        the player pressed anything -- the villain hunts on real time now, so
+        standing still is no longer safe.
+        """
         if self.game_over:
             return
 
-        self.villain.tick(self.player)
+        self.villain.update(self.player, now)
         self._check_caught()
 
     def status_line(self):
@@ -110,7 +122,7 @@ class GameModel:
             return "You win! Press q to quit." if self.won else "Caught! Press q to quit."
         return (
             f"Items left: {self.board.remaining_goal_items()} | "
-            f"Villain moves every {self.villain.move_interval()} turns | "
+            f"Villain: 1 move every {self.villain.move_period():.1f}s | "
             "WASD/Arrows to move, q to quit"
         )
 
@@ -146,7 +158,10 @@ def run_game(stdscr):
     model = GameModel(board, player, villain, TOTAL_GOAL_ITEMS)
 
     curses.curs_set(0)
-    stdscr.nodelay(False)
+    # Wait at most FRAME_MS for a keypress instead of blocking on one, so the
+    # loop keeps spinning and the villain's clock keeps running while the
+    # player is thinking. getch() returns -1 when nothing was pressed.
+    stdscr.timeout(FRAME_MS)
 
     while True:
         render(stdscr, model)
@@ -161,6 +176,8 @@ def run_game(stdscr):
 
         if key in DIRECTIONS and controller.handle_key(key):
             model.on_player_moved()
+
+        model.update(time.monotonic())
 
 
 def main():

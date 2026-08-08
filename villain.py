@@ -239,15 +239,21 @@ class Villain:
     OFF_HINT_PENALTY = -0.5    # legal move, but ignored the hint
     BLOCKED_PENALTY = -1.0     # walked into a wall
 
-    def __init__(self, x, y, board, total_goal_items=3, base_interval=3, min_interval=1,
+    # Seconds between moves, indexed by how many goal items the player has
+    # collected. The villain closes in as the player gets closer to escaping,
+    # and holds the last value once everything has been picked up.
+    MOVE_PERIODS = (1.5, 1.0, 0.5)
+
+    def __init__(self, x, y, board, total_goal_items=3, move_periods=None,
                  hint_refresh_interval=3):
         self.x = x
         self.y = y
         self.board = board
         self.total_goal_items = total_goal_items
-        self.base_interval = base_interval
-        self.min_interval = min_interval
-        self.ticks_waited = 0
+        self.move_periods = move_periods or self.MOVE_PERIODS
+        # Set on the first update() so the villain does not fire immediately
+        # on a clock that started before the match did.
+        self.last_move_time = None
         self.scout = ScoutBrain(board, self, total_goal_items,
                                  refresh_interval=hint_refresh_interval)
         self.hunter = HunterBrain()
@@ -256,32 +262,35 @@ class Villain:
     def pos(self):
         return (self.x, self.y)
 
-    def move_interval(self):
+    def move_period(self):
         """
-        How many ticks pass between moves, shrinking by one for every goal
-        item collected so far (read live from the board) down to
-        self.min_interval. Fewer ticks between moves means a villain that
-        closes in faster, without ever covering more ground in one step.
+        Seconds between moves, looked up by how many goal items have been
+        collected so far (read live from the board). Collecting past the end
+        of the table keeps the final, fastest period rather than running off
+        it.
         """
         remaining = remaining_items(self.board, self.total_goal_items)
         collected = self.total_goal_items - remaining
-        return max(self.min_interval, self.base_interval - collected)
+        return self.move_periods[min(collected, len(self.move_periods) - 1)]
 
-    def tick(self, player):
+    def update(self, player, now):
         """
-        Advance the villain by one tick, which moves it at most one cell.
+        Move the villain if its period has elapsed, at most one cell.
 
-        Waiting out an interval and then stepping once is what keeps the
-        villain visible: moving several cells inside a single call would read
-        as a teleport on screen, since nothing gets drawn in between.
+        `now` is passed in rather than read from the clock in here, so a test
+        or a training run can drive the villain on a fake clock as fast as it
+        likes instead of waiting in real time.
 
-        Returns True if the player was caught on this tick.
+        Returns True if the player was caught on this move.
         """
-        self.ticks_waited += 1
-        if self.ticks_waited < self.move_interval():
+        if self.last_move_time is None:
+            self.last_move_time = now
             return False
 
-        self.ticks_waited = 0
+        if now - self.last_move_time < self.move_period():
+            return False
+
+        self.last_move_time = now
         self._take_single_move(player)
         return self.caught_player(player)
 
