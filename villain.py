@@ -73,12 +73,16 @@ class ScoutBrain:
     The smart one, that knows where the player is and the whole board.
     Computes a path to the player through A* and only reveals a small window to the dumb brain.
     """
-    def __init__(self, board, villain, total_goal_items, hint_size=5, min_hint_size=1):
+    def __init__(self, board, villain, total_goal_items, hint_size=5, min_hint_size=1,
+                 refresh_interval=3):
         self.board = board
         self.villain = villain
         self.total_goal_items = total_goal_items
         self.hint_size = hint_size
         self.min_hint_size = min_hint_size
+        self.refresh_interval = max(1, refresh_interval)
+        self._cached_hint = None
+        self._moves_since_refresh = 0
 
     def _heuristic(self, a, b):
         """Manhattan distance - admissible since movement is cardinal-only."""
@@ -133,10 +137,22 @@ class ScoutBrain:
         entry is where the Scout would step next. Empty when the player is
         unreachable, which leaves the Hunter to guess.
         """
-        path = self.find_path(player)
-        if not path or len(path) < 2:
-            return []
-        return path[1:1 + self.current_hint_size()]
+        due_for_refresh = (
+            self._cached_hint is None
+            or self._moves_since_refresh >= self.refresh_interval
+        )
+
+        if due_for_refresh:
+            path = self.find_path(player)
+            if not path or len(path) < 2:
+                self._cached_hint = []
+            else:
+                self._cached_hint = path[1:1 + self.current_hint_size()]
+            self._moves_since_refresh = 1
+        else:
+            self._moves_since_refresh += 1
+
+        return self._cached_hint
 
 
 class HunterBrain:
@@ -223,14 +239,16 @@ class Villain:
     OFF_HINT_PENALTY = -0.5    # legal move, but ignored the hint
     BLOCKED_PENALTY = -1.0     # walked into a wall
 
-    def __init__(self, x, y, board, total_goal_items=3, max_speed=3, base_speed=1):
+    def __init__(self, x, y, board, total_goal_items=3, max_speed=3, base_speed=1,
+                 hint_refresh_interval=3):
         self.x = x
         self.y = y
         self.board = board
         self.total_goal_items = total_goal_items
         self.max_speed = max_speed
         self.base_speed = base_speed
-        self.scout = ScoutBrain(board, self, total_goal_items)
+        self.scout = ScoutBrain(board, self, total_goal_items,
+                                 refresh_interval=hint_refresh_interval)
         self.hunter = HunterBrain()
 
     @property
