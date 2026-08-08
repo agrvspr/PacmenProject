@@ -9,7 +9,7 @@ class DemoBoard:
     GOALPIECE = "I"
     ENDGOAL = "G"
     WALL = "#"
-    EMPTYSPACE = "X"
+    EMPTYSPACE = " "
     DEFAULT_TILES = {GOALPIECE: 3, ENDGOAL: 1}
     DEFAULT_MIN_SPAWN_DISTANCE = 4
     DEFAULT_OBSTACLE_RATIO = 0.14
