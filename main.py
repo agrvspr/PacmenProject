@@ -121,7 +121,7 @@ def render(stdscr, model):
 def run_game(stdscr):
     board = DemoBoard(tiles={DemoBoard.GOALPIECE: TOTAL_GOAL_ITEMS, DemoBoard.ENDGOAL: 1})
 
-    player_start, villain_start = _pick_start_positions(board)
+    player_start, villain_start = board.get_spawn_positions()
     player = PlayerModel(*player_start)
     villain = Villain(*villain_start, board=board, total_goal_items=TOTAL_GOAL_ITEMS)
 
