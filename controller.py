@@ -66,3 +66,36 @@ class Controller:
                 break
  
             self.handle_key(key)
+if __name__ == "__main__":
+ 
+    class DemoBoard:
+        """Minimal stand-in for your Board model: 9x9, border walls only."""
+        SIZE = 9
+ 
+        def is_walkable(self, x, y):
+            return 0 <= x < self.SIZE and 0 <= y < self.SIZE
+ 
+    class DemoPlayer:
+        def __init__(self, x, y):
+            self.x = x
+            self.y = y
+ 
+        def move(self, dx, dy):
+            self.x += dx
+            self.y += dy
+ 
+    def render(stdscr):
+        stdscr.clear()
+        stdscr.addstr(0, 0, "Arrow keys / WASD to move, q to quit")
+        for y in range(board.SIZE):
+            row = ""
+            for x in range(board.SIZE):
+                row += "P" if (x, y) == (player.x, player.y) else "X"
+            stdscr.addstr(y + 2, 0, row)
+        stdscr.refresh()
+ 
+    board = DemoBoard()
+    player = DemoPlayer(4, 4)
+    controller = Controller(board, player)
+ 
+    curses.wrapper(lambda stdscr: controller.run(stdscr, render))
