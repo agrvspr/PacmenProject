@@ -1,4 +1,10 @@
 import curses
+"""
+Expected Model interface (adjust to match your actual classes):
+    player.x, player.y      -> current position (ints)
+    player.move(dx, dy)     -> updates player position
+    board.is_walkable(x, y) -> bool, False for walls / out of bounds
+"""
 
 DIRECTIONS = {
     curses.KEY_UP: (0, -1),
