@@ -5,11 +5,11 @@ from player import PlayerModel
 class DemoBoard:
     """Simple board generator that randomizes tiles inside a bordered grid."""
 
-    SIZE = 9
+    SIZE = 20
     GOALPIECE = "I"
     ENDGOAL = "G"
     WALL = "#"
-    EMPTYSPACE = "x"
+    EMPTYSPACE = "X"
     DEFAULT_TILES = {GOALPIECE: 3, ENDGOAL: 1}
     DEFAULT_MIN_SPAWN_DISTANCE = 4
     DEFAULT_OBSTACLE_RATIO = 0.14

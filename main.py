@@ -129,20 +129,35 @@ class GameModel:
 
 def render(stdscr, model):
     board, player, villain = model.board, model.player, model.villain
+    max_y, max_x = stdscr.getmaxyx()
 
     stdscr.clear()
-    stdscr.addstr(0, 0, model.status_line())
+    status = model.status_line()[: max(0, max_x - 1)]
+    if max_y > 0 and max_x > 0:
+        stdscr.addstr(0, 0, status)
 
-    for y in range(board.SIZE):
+    # Rows begin at y=2, so usable board rows are whatever still fits below.
+    drawable_rows = max(0, max_y - 2)
+    visible_rows = min(board.SIZE, drawable_rows)
+    visible_cols = min(board.SIZE, max(0, max_x - 1))
+
+    if visible_rows < board.SIZE or visible_cols < board.SIZE:
+        resize_hint = "Resize terminal to view full board"
+        hint = resize_hint[: max(0, max_x - 1)]
+        if max_y > 1 and max_x > 0:
+            stdscr.addstr(1, 0, hint)
+
+    for y in range(visible_rows):
         row_chars = []
-        for x in range(board.SIZE):
+        for x in range(visible_cols):
             if (x, y) == (player.x, player.y):
                 row_chars.append("P")
             elif (x, y) == (villain.x, villain.y):
                 row_chars.append("V")
             else:
                 row_chars.append(board.grid[y][x])
-        stdscr.addstr(y + 2, 0, "".join(row_chars))
+        if max_x > 0:
+            stdscr.addstr(y + 2, 0, "".join(row_chars))
 
     stdscr.refresh()
 
