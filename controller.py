@@ -1,5 +1,5 @@
 import curses
-from boardGeneration import DemoBoard
+from boardGeneration import DemoBoard, BoardState
 """
 Expected Model interface (adjust to match your actual classes):
     player.x, player.y      -> current position (ints)
@@ -94,6 +94,7 @@ if __name__ == "__main__":
         stdscr.refresh()
  
     board = DemoBoard()
+    BoardState.GameStarted = True
     player = PlayerModel(4, 4)
     controller = Controller(board, player)
  

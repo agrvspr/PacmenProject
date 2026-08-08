@@ -1,19 +1,20 @@
 
 import random
-
+from player import PlayerModel
 
 class DemoBoard:
     """Simple board generator that randomizes tiles inside a bordered grid."""
 
-    SIZE = 12
+    SIZE = 9
     GOALPIECE = "I"
     ENDGOAL = "G"
     WALL = "#"
     EMPTYSPACE = "X"
+    DEFAULT_TILES = {GOALPIECE: 3, ENDGOAL: 1}
 
     def __init__(self, tiles=None, size=None):
         self.SIZE = size or self.SIZE
-        self.grid = self.generate_random_board(tiles or {}, self.SIZE)
+        self.grid = self.generate_random_board(tiles or self.DEFAULT_TILES, self.SIZE)
 
     @classmethod
     def generate_random_board(cls, tiles, size=None):
@@ -60,3 +61,8 @@ class DemoBoard:
         Count GOALPIECE tiles still on the grid.
         """
         return sum(row.count(self.GOALPIECE) for row in self.grid)
+class BoardState:
+    GoalPiecesCollected = sum
+    GameStarted = False
+    FinalGoalActive = False
+
