@@ -1,10 +1,13 @@
 import curses
+from boardGeneration import DemoBoard
 """
 Expected Model interface (adjust to match your actual classes):
     player.x, player.y      -> current position (ints)
     player.move(dx, dy)     -> updates player position
     board.is_walkable(x, y) -> bool, False for walls / out of bounds
 """
+
+from player import PlayerModel
 
 DIRECTIONS = {
     curses.KEY_UP: (0, -1),
@@ -68,13 +71,6 @@ class Controller:
             self.handle_key(key)
 if __name__ == "__main__":
  
-    class DemoBoard:
-        """Minimal stand-in for your Board model: 9x9, border walls only."""
-        SIZE = 9
- 
-        def is_walkable(self, x, y):
-            return 0 <= x < self.SIZE and 0 <= y < self.SIZE
- 
     class DemoPlayer:
         def __init__(self, x, y):
             self.x = x
@@ -90,12 +86,15 @@ if __name__ == "__main__":
         for y in range(board.SIZE):
             row = ""
             for x in range(board.SIZE):
-                row += "P" if (x, y) == (player.x, player.y) else "X"
+                if (x, y) == (player.x, player.y):
+                    row += "P"
+                else:
+                    row += board.grid[y][x]
             stdscr.addstr(y + 2, 0, row)
         stdscr.refresh()
  
     board = DemoBoard()
-    player = DemoPlayer(4, 4)
+    player = PlayerModel(4, 4)
     controller = Controller(board, player)
  
     curses.wrapper(lambda stdscr: controller.run(stdscr, render))
