@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cat &amp; Mouse</title>
+<style>
+  :root{
+    --bg-page:#e9e9ea;
+    --panel:#ffffff;
+    --panel-border:#d3d3d6;
+    --grid-bg:#dcdce1;      /* simple gray board background, lightened */
+    --wall:#161616;         /* black line walls */
+    --ink:#1c1c1e;
+    --muted:#6a6a6e;
+    --win:#2bff00;
+    --lose:#d90606;
+    --btn:#2b2b2e;
+    --btn-text:#ffffff;
+    --btn-quit:#c62828;
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:var(--bg-page);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    color:var(--ink);
+  }
+
+  .wrap{
+    width:100%;
+    max-width:620px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+  }
+
+  h1{
+    margin:0;
+    font-size:1.6rem;
+    letter-spacing:0.02em;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  h1 .tag{
+    font-size:0.6rem;
+    font-weight:700;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    background:var(--ink);
+    color:#fff;
+    padding:3px 8px;
+    border-radius:20px;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:14px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.08);
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+  }
+
+  .statusbar{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:0.85rem;
+    color:var(--muted);
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .statusbar b{ color:var(--ink); }
+
+  .board-frame{
+    position:relative;
+    width:100%;
+    max-width:480px;
+    aspect-ratio:1/1;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow: inset 0 0 0 3px var(--wall);
+  }
+
+  canvas{
+    display:block;
+    width:100%;
+    height:100%;
+  }
+
+  .overlay{
+    position:absolute;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(20,20,22,0.72);
+    backdrop-filter: blur(1px);
+  }
+  .overlay.show{ display:flex; }
+  .overlay-card{
+    background:var(--panel);
+    border-radius:14px;
+    padding:22px 26px;
+    text-align:center;
+    max-width:85%;
+    box-shadow:0 10px 30px rgba(0,0,0,0.35);
+  }
+  .overlay-card h2{
+    margin:0 0 6px 0;
+    font-size:1.4rem;
+  }
+  .overlay-card p{
+    margin:0 0 14px 0;
+    color:var(--muted);
+    font-size:0.9rem;
+  }
+  .overlay-card.win h2{ color:var(--win); }
+  .overlay-card.lose h2{ color:var(--lose); }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+
+  button{
+    font-family:inherit;
+    font-size:0.9rem;
+    font-weight:700;
+    border:none;
+    border-radius:10px;
+    padding:10px 20px;
+    cursor:pointer;
+    color:var(--btn-text);
+    background:var(--btn);
+    transition: transform 0.06s ease, filter 0.15s ease;
+  }
+  button:hover{ filter:brightness(1.12); }
+  button:active{ transform: scale(0.96); }
+  button.quit{ background:var(--btn-quit); }
+  button:disabled{
+    opacity:0.45;
+    cursor:not-allowed;
+    filter:none;
+  }
+
+  .hint{
+    font-size:0.78rem;
+    color:var(--muted);
+    text-align:center;
+    max-width:440px;
+  }
+
+  .legend{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    justify-content:center;
+    font-size:0.75rem;
+    color:var(--muted);
+  }
+  .legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .swatch{ width:12px; height:12px; border-radius:3px; display:inline-block; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>Cat &amp; Mouse <span class="tag">real villain AI</span></h1>
+
+  <div class="panel">
+    <div class="statusbar">
+      <span>🧀 Cheese left: <b id="itemsLeft">–</b></span>
+      <span>🐱 Cat speed: <b id="catSpeed">–</b></span>
+      <span id="stateLabel">Press Start</span>
+    </div>
+
+    <div class="board-frame">
+      <canvas id="board" width="600" height="600"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="overlay-card" id="overlayCard">
+          <h2 id="overlayTitle">You win!</h2>
+          <p id="overlayText">The mouse escaped into the black hole.</p>
+          <button id="playAgainBtn">Play again</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn">Start</button>
+      <button id="quitBtn" class="quit" disabled>Quit</button>
+    </div>
+
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--grid-bg)"></span>open floor</span>
+      <span><span class="swatch" style="background:var(--wall)"></span>wall</span>
+      <span><span class="swatch" style="background:#f2b705"></span>cheese</span>
+      <span><span class="swatch" style="background:radial-gradient(circle,#000 40%,#5b2a86)"></span>black hole</span>
+    </div>
+
+    <p class="hint">Move the mouse with <b>WASD</b> or the <b>arrow keys</b>. This plays against the real Python villain AI (Scout/Hunter split-brain, A* + Q-learning) running on a local server, not a re-implementation — the cat's moves come straight from <code>villain.py</code>.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const WALL = "#", EMPTY = " ", CHEESE = "I", HOLE = "G";
+
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+
+  const itemsLeftEl = document.getElementById("itemsLeft");
+  const catSpeedEl = document.getElementById("catSpeed");
+  const stateLabelEl = document.getElementById("stateLabel");
+  const overlay = document.getElementById("overlay");
+  const overlayCard = document.getElementById("overlayCard");
+  const overlayTitle = document.getElementById("overlayTitle");
+  const overlayText = document.getElementById("overlayText");
+  const startBtn = document.getElementById("startBtn");
+  const quitBtn = document.getElementById("quitBtn");
+  const playAgainBtn = document.getElementById("playAgainBtn");
+
+  let latest = null;   // last state JSON from the server
+  let CELL = 0;
+  let pollHandle = null;
+  let spin = 0;
+  let moveInFlight = false;
+  let running = false;
+
+  const KEY_TO_DIR = {
+    ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
+    w: "up", s: "down", a: "left", d: "right",
+    W: "up", S: "down", A: "left", D: "right",
+  };
+
+  // ---------------------------------------------------------------
+  // Pixel-art sprites (10x8 grids). "." is transparent.
+  // ---------------------------------------------------------------
+  const MOUSE_SPRITE = [
+    "...EE.....",
+    "..EBBBE...",
+    ".BBBBBBB..",
+    "PBBKBBBB.T",
+    ".BBBBBBBTT",
+    ".BBBBBBB..",
+    "..BBBBB...",
+    "...BBB....",
+  ];
+  const MOUSE_PALETTE = { E:"#6f6b73", B:"#a8a4ab", P:"#e9a7b0", K:"#1c1c1e", T:"#5f5b62" };
+
+  const CAT_SPRITE = [
+    "C........C",
+    ".C......C.",
+    "..CCCCCC..",
+    ".CCCCCCCC.",
+    "CCCDKCCC.T",
+    ".CCCCCCCTT",
+    "..CCCCCC..",
+    "...CCCC...",
+  ];
+  const CAT_PALETTE = { C:"#e8792b", D:"#8f4413", K:"#1c1c1e", T:"#a8540f" };
+
+  function drawSprite(x, y, sprite, palette) {
+    const px = x * CELL, py = y * CELL;
+    const cols = sprite[0].length;
+    const rows = sprite.length;
+    const pixel = (CELL * 0.92) / Math.max(cols, rows);
+    const spriteW = pixel * cols, spriteH = pixel * rows;
+    const offX = px + (CELL - spriteW) / 2;
+    const offY = py + (CELL - spriteH) / 2;
+
+    for (let r = 0; r < rows; r++) {
+      const line = sprite[r];
+      for (let c = 0; c < cols; c++) {
+        const ch = line[c];
+        if (ch === "." || ch === undefined) continue;
+        ctx.fillStyle = palette[ch] || "#000";
+        ctx.fillRect(offX + c * pixel, offY + r * pixel, pixel + 0.6, pixel + 0.6);
+      }
+    }
+  }
+
+  function drawWallCell(x, y) {
+    const px = x * CELL, py = y * CELL;
+    ctx.fillStyle = "#161616";
+    ctx.fillRect(px, py, CELL, CELL);
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 1, py + 1, CELL - 2, CELL - 2);
+  }
+
+  function drawCheese(x, y) {
+    const px = x * CELL, py = y * CELL;
+    const cx = px + CELL/2, cy = py + CELL/2;
+    const r = CELL * 0.38;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 4);
+    ctx.beginPath();
+    ctx.moveTo(-r, r*0.7);
+    ctx.lineTo(r, r*0.7);
+    ctx.lineTo(0, -r*0.95);
+    ctx.closePath();
+    ctx.fillStyle = "#f2b705";
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#c98a02";
+    ctx.stroke();
+    ctx.fillStyle = "#c98a02";
+    ctx.beginPath(); ctx.arc(-r*0.28, r*0.15, r*0.14, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(r*0.22, r*0.35, r*0.10, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0.02, -r*0.15, r*0.11, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBlackHole(x, y, spinVal) {
+    const px = x * CELL, py = y * CELL;
+    const cx = px + CELL/2, cy = py + CELL/2;
+    const rOuter = CELL * 0.46;
+
+    for (let i = 3; i >= 1; i--) {
+      const grd = ctx.createRadialGradient(cx, cy, rOuter*0.1, cx, cy, rOuter*(i/2.2));
+      grd.addColorStop(0, "rgba(0,0,0,0)");
+      grd.addColorStop(0.6, "rgba(91,42,134,0.15)");
+      grd.addColorStop(1, "rgba(91,42,134,0)");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rOuter*(i/2.2), 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(spinVal * 1.4);
+    ctx.strokeStyle = "rgba(180,120,220,0.55)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rOuter * (0.55 + i*0.12), rOuter * (0.22 + i*0.05), i * 0.8, 0, Math.PI * 1.4);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, rOuter*0.55);
+    core.addColorStop(0, "#000000");
+    core.addColorStop(0.7, "#000000");
+    core.addColorStop(1, "#3a1a55");
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rOuter*0.55, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function render() {
+    if (!latest) return;
+    const size = latest.size;
+    CELL = canvas.width / size;
+
+    ctx.fillStyle = "#dcdce1";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let y = 0; y < size; y++) {
+      const row = latest.grid[y];
+      for (let x = 0; x < size; x++) {
+        const cell = row[x];
+        if (cell === WALL) drawWallCell(x, y);
+        else if (cell === CHEESE) drawCheese(x, y);
+        else if (cell === HOLE) drawBlackHole(x, y, spin);
+      }
+    }
+
+    drawSprite(latest.villain.x, latest.villain.y, CAT_SPRITE, CAT_PALETTE);
+    drawSprite(latest.player.x, latest.player.y, MOUSE_SPRITE, MOUSE_PALETTE);
+  }
+
+  function updateHud() {
+    if (!latest) return;
+    itemsLeftEl.textContent = latest.items_left;
+    catSpeedEl.textContent = latest.move_period.toFixed(2) + "s/move";
+    stateLabelEl.textContent = latest.game_over
+      ? (latest.won ? "You win!" : "Caught!")
+      : "Run!";
+  }
+
+  function applyState(data) {
+    latest = data;
+    updateHud();
+    render();
+    if (data.game_over) {
+      stopPolling();
+      running = false;
+      startBtn.disabled = false;
+      quitBtn.disabled = true;
+      showOverlay(data.won);
+    }
+  }
+
+  function showOverlay(won) {
+    overlayCard.classList.remove("win", "lose");
+    overlayCard.classList.add(won ? "win" : "lose");
+    overlayTitle.textContent = won ? "You win!" : "Caught!";
+    overlayText.textContent = won
+      ? "The mouse dove into the black hole and vanished safely."
+      : "The cat got its paws on the mouse. Try again?";
+    overlay.classList.add("show");
+  }
+
+  function hideOverlay() {
+    overlay.classList.remove("show");
+  }
+
+  async function callApi(path, opts) {
+    const res = await fetch(path, opts);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || ("request failed: " + path));
+    }
+    return res.json();
+  }
+
+  async function startGame() {
+    hideOverlay();
+    startBtn.disabled = true;
+    quitBtn.disabled = false;
+    stateLabelEl.textContent = "Run!";
+    const data = await callApi("/api/new_game", { method: "POST" });
+    applyState(data);
+    running = true;
+    startPolling();
+  }
+
+  async function quitGame() {
+    stopPolling();
+    running = false;
+    await callApi("/api/quit", { method: "POST" }).catch(() => {});
+    startBtn.disabled = false;
+    quitBtn.disabled = true;
+    stateLabelEl.textContent = "Quit";
+    overlayCard.classList.remove("win", "lose");
+    overlayTitle.textContent = "Game quit";
+    overlayText.textContent = "You left the run early. Start again whenever you're ready.";
+    overlay.classList.add("show");
+  }
+
+  function startPolling() {
+    stopPolling();
+    // Poll faster than the villain's fastest move period (0.15s) so its
+    // steps look smooth, without hammering the server.
+    pollHandle = setInterval(async () => {
+      if (!running || moveInFlight) return;
+      try {
+        const data = await callApi("/api/state");
+        applyState(data);
+      } catch (e) {
+        // no active game server-side; stop trying
+        stopPolling();
+      }
+    }, 100);
+  }
+
+  function stopPolling() {
+    if (pollHandle) {
+      clearInterval(pollHandle);
+      pollHandle = null;
+    }
+  }
+
+  async function sendMove(direction) {
+    if (!running || moveInFlight || (latest && latest.game_over)) return;
+    moveInFlight = true;
+    try {
+      const data = await callApi("/api/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction }),
+      });
+      applyState(data);
+    } finally {
+      moveInFlight = false;
+    }
+  }
+
+  window.addEventListener("keydown", (e) => {
+    const dir = KEY_TO_DIR[e.key];
+    if (dir) {
+      e.preventDefault();
+      sendMove(dir);
+    }
+  });
+
+  startBtn.addEventListener("click", () => { startGame().catch(console.error); });
+  quitBtn.addEventListener("click", () => { quitGame().catch(console.error); });
+  playAgainBtn.addEventListener("click", () => { startGame().catch(console.error); });
+
+  // gentle idle animation for the black hole swirl even while waiting
+  function tick() {
+    spin += 0.016;
+    if (latest) render();
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // initial placeholder
+  (function renderPreview() {
+    CELL = canvas.width / 20;
+    ctx.fillStyle = "#dcdce1";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.font = `${CELL}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🐱", canvas.width*0.4, canvas.height*0.5);
+    ctx.fillText("🐭", canvas.width*0.6, canvas.height*0.5);
+  })();
+})();
+</script>
+</body>
+</html>
