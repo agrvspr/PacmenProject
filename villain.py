@@ -226,7 +226,7 @@ class Villain:
     # Seconds between moves, indexed by how many goal items the player has
     # collected. The villain closes in as the player gets closer to escaping,
     # and holds the last value once everything has been picked up.
-    MOVE_PERIODS = (1.2, 0.6, 0.2)
+    MOVE_PERIODS = (1.0, 0.5, 0.05)
 
     def __init__(self, x, y, board, total_goal_items=3, move_periods=None):
         self.x = x
