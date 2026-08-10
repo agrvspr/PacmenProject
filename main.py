@@ -98,7 +98,7 @@ def run_game(stdscr):
     # Genetic algorithm generator: breeds a level against the fitness function
     # in board_ga. Takes about a second, and every level it returns is solvable
     # by construction because entities are placed inside one connected region.
-    board = GeneticBoard(population_size=30, generations=25)
+    board = GeneticBoard(population_size=24, generations=18)
 
     player_start, villain_start = board.get_spawn_positions()
     player = PlayerModel(*player_start)

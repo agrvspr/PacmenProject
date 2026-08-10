@@ -141,6 +141,15 @@ def decode(genome):
     if len(region) < PLACEMENT_GENES + 4:
         return None
 
+    # Wall off every pocket of floor outside the main region, so the whole
+    # walkable map is one connected space. Otherwise a level can contain
+    # sealed rooms that look reachable on screen but are not, which reads as
+    # a bug to whoever is playing.
+    in_region = set(region)
+    for x, y in open_cells(grid):
+        if (x, y) not in in_region:
+            grid[y][x] = WALL
+
     chosen = []
     for offset in range(PLACEMENT_GENES):
         gene = genome[TILE_GENES + offset]
@@ -174,17 +183,93 @@ def _neighbours(grid, x, y):
             if _in_bounds(x + dx, y + dy) and grid[y + dy][x + dx] != WALL]
 
 
-def _distances(grid, start):
-    """BFS step counts from start to every reachable floor cell."""
+def _distances(grid, start, blocked=()):
+    """
+    BFS step counts from start to every reachable floor cell, optionally
+    treating some cells as if they were walls.
+    """
+    blocked = set(blocked)
     dist = {start: 0}
     queue = deque([start])
     while queue:
         x, y = queue.popleft()
         for nxt in _neighbours(grid, x, y):
-            if nxt not in dist:
+            if nxt not in dist and nxt not in blocked:
                 dist[nxt] = dist[(x, y)] + 1
                 queue.append(nxt)
     return dist
+
+
+def articulation_points(grid, region, root):
+    """
+    Cells whose removal would split the map -- the single doorways.
+
+    This is what makes "two ways in" mean something globally rather than
+    locally. A cheese can have two neighbouring floor cells and still sit in a
+    room reachable only through one door further back; that door is a cut
+    vertex, and it does not show up in any check that only looks at the cells
+    touching the cheese.
+
+    Iterative Tarjan, so a long corridor cannot blow the recursion limit.
+    """
+    disc, low, parent = {}, {}, {}
+    cuts = set()
+    timer = 0
+    root_children = 0
+
+    disc[root] = low[root] = timer
+    timer += 1
+    stack = [(root, iter(_neighbours(grid, *root)))]
+
+    while stack:
+        node, neighbours = stack[-1]
+        descended = False
+
+        for nxt in neighbours:
+            if nxt not in region:
+                continue
+            if nxt not in disc:
+                parent[nxt] = node
+                disc[nxt] = low[nxt] = timer
+                timer += 1
+                if node == root:
+                    root_children += 1
+                stack.append((nxt, iter(_neighbours(grid, *nxt))))
+                descended = True
+                break
+            if nxt != parent.get(node):
+                low[node] = min(low[node], disc[nxt])
+
+        if not descended:
+            stack.pop()
+            if stack:
+                above = stack[-1][0]
+                low[above] = min(low[above], low[node])
+                if above != root and low[node] >= disc[above]:
+                    cuts.add(above)
+
+    if root_children > 1:
+        cuts.add(root)
+    return cuts
+
+
+def entrances(grid, source, target):
+    """
+    How many of target's neighbours can be reached from source *without
+    passing through target itself*.
+
+    Two or more means there are genuinely independent ways in, so blocking one
+    approach does not seal the cheese or the exit off. Counting adjacent floor
+    cells alone would not show this: a cell at the end of a long corridor has
+    two neighbours but only one route to it.
+
+    One BFS with the target treated as a wall answers it for all approaches at
+    once, which keeps this cheap enough to run inside the fitness loop.
+    """
+    if source == target:
+        return len(_neighbours(grid, *target))
+    reachable = _distances(grid, source, blocked={target})
+    return sum(1 for n in _neighbours(grid, *target) if n in reachable)
 
 
 def _longest_straight(grid):
@@ -261,6 +346,24 @@ def measure(genome):
     cycles = edges - len(region) + 1
     floor = sorted(region)
 
+    cuts = articulation_points(grid, region, player_spawn)
+
+    # Reject bottleneck-ridden layouts outright. This is a real filter and it
+    # also bounds the exact check below to at most MAX_CHOKEPOINTS searches.
+    if len(cuts) > MAX_CHOKEPOINTS:
+        return None
+
+    # The exact property: no single cell anywhere may cut the player off from a
+    # cheese or the exit. Checking only the cells touching a target misses the
+    # case that matters -- a room with two doorways inside it but one door in.
+    important = cheese + [exit_cell]
+    for cut in cuts:
+        if cut == player_spawn:
+            continue
+        without = _distances(grid, player_spawn, blocked={cut})
+        if any(target != cut and target not in without for target in important):
+            return None
+
     # Greedy nearest-cheese tour, then the exit: an approximation of the route
     # a player actually walks, which is what sets the length of a match.
     tour = 0
@@ -302,14 +405,23 @@ def measure(genome):
         "player_spawn": player_spawn,
         "villain_spawn": villain_spawn,
         "floor_ratio": len(floor) / interior,
+        # How many of the 36 tiles the connected region actually touches.
+        # Without this the GA can satisfy floor_ratio with one dense blob in a
+        # corner and wall off half the map, which is technically connected but
+        # wastes most of the board.
+        "coverage": len({((y - 1) // TILE, (x - 1) // TILE)
+                         for x, y in region if 1 <= x < SIZE - 1 and 1 <= y < SIZE - 1}),
         "dead_ends": dead_ends,
         "junctions": junctions,
         "cycles": cycles,
         "tour": tour,
         "leg_spread": max(legs) - min(legs) if legs else 0,
         "cheese_spread": spread,
-        "cheese_exposed": sum(1 for c in cheese if degrees.get(c, 0) >= 2),
-        "exit_approaches": degrees.get(exit_cell, 0),
+        "cheese_entrances": [entrances(grid, player_spawn, c) for c in cheese],
+        "exit_entrances": entrances(grid, player_spawn, exit_cell),
+        "pockets": 0,          # sealed off during decode, so always zero now
+        "chokepoints": len(cuts),
+        "guarded_targets": sum(1 for c in cheese + [exit_cell] if c in cuts),
         "spawn_gap": reach.get(villain_spawn, 0),
         "longest_straight": _longest_straight(grid),
         "clumping": _wall_clumping(grid),
@@ -323,16 +435,23 @@ def measure(genome):
 
 UNSOLVABLE = -10_000.0
 
+# Above this many single-doorway cells a layout is rejected outright, rather
+# than being scored and allowed to compete. Doubles as a cap on how much work
+# the two-routes-to-everything check can do per candidate.
+MAX_CHOKEPOINTS = 14
+
 # Targets are calibrated against the range 400 random genomes actually produce,
 # so none of them is unreachable -- an unreachable target is a constant penalty
 # that only adds noise to selection. Ranges seen: floor 0.14-0.85, tour 10-125,
 # cycles 14-185, dead ends 0-21, junctions 22-229, cheese spread 1-28,
 # spawn gap 1-36, leg spread 2-36, longest straight 9-18, clumping 0.85-1.0.
 TARGETS = {
+    "coverage":         (36,   12.0),   # region must reach all 36 tiles
+    "chokepoints":      (0,     3.0),   # cells that are the only way through
     "floor_ratio":      (0.45, 60.0),   # a bit tighter than a random level
     "tour":             (85,    0.6),   # long enough that a match has shape
     "cycles":           (30,    0.8),   # loops to evade through, not a plaza
-    "dead_ends":        (10,    1.5),   # some, for fog tension
+    "dead_ends":        (2,     1.5),   # a dead end IS a chokepoint, so few
     "junctions":        (90,    0.8),   # decision points
     "cheese_spread":    (16,    2.0),   # closest pair, so you cross the map
     "spawn_gap":        (16,    2.5),   # villain's head start
@@ -354,16 +473,25 @@ def fitness(genome, detail=False):
         breakdown[key] = penalty
         score += penalty
 
-    # A cheese in a dead end is a death trap once the villain is fast, and the
-    # exit needs more than one approach or the villain can camp a single
-    # chokepoint and the level is unwinnable in practice rather than in theory.
-    trapped = CHEESE_COUNT - stats["cheese_exposed"]
-    breakdown["trapped_cheese"] = -80.0 * trapped
-    score += breakdown["trapped_cheese"]
+    # Every cheese and the exit must have at least two independent ways in.
+    # With one, the villain only has to sit in a single doorway and the level
+    # is unwinnable in practice even though it is solvable on paper -- so this
+    # is a rejection, not a penalty it could out-earn elsewhere.
+    single_entrance = sum(1 for count in stats["cheese_entrances"] if count < 2)
+    if single_entrance or stats["exit_entrances"] < 2:
+        return (UNSOLVABLE, None) if detail else UNSOLVABLE
 
-    if stats["exit_approaches"] < 2:
-        breakdown["camped_exit"] = -120.0
-        score += breakdown["camped_exit"]
+    # And none of them may sit on a chokepoint itself, which would make the
+    # cell the single way through to whatever lies past it.
+    if stats["guarded_targets"]:
+        return (UNSOLVABLE, None) if detail else UNSOLVABLE
+
+    # Beyond the required two, extra ways in are a mild bonus: more approaches
+    # mean more ways to break off a chase.
+    extra = sum(stats["cheese_entrances"]) - 2 * CHEESE_COUNT
+    extra += stats["exit_entrances"] - 2
+    breakdown["extra_entrances"] = min(extra, 6) * 4.0
+    score += breakdown["extra_entrances"]
 
     return (score, {"stats": stats, "breakdown": breakdown}) if detail else score
 
@@ -373,6 +501,27 @@ def fitness(genome, detail=False):
 def random_genome(rng):
     return [rng.randrange(GENE_VALUES) for _ in range(TILE_GENES)] + \
            [rng.randrange(1024) for _ in range(PLACEMENT_GENES)]
+
+
+def viable_genome(rng, attempts=60):
+    """
+    A random genome that passes the hard gates, if one turns up quickly.
+
+    Only about 10% of random genomes survive the two-routes-to-everything
+    requirement, so seeding the population at random leaves selection working
+    almost entirely with dead weight. Rejection-sampling the *initial*
+    population is cheap and gives crossover real material from generation one.
+    Falls back to any genome so this can never loop forever.
+    """
+    best, best_score = None, float("-inf")
+    for _ in range(attempts):
+        candidate = random_genome(rng)
+        score = fitness(candidate)
+        if score > UNSOLVABLE:
+            return candidate
+        if score > best_score:
+            best, best_score = candidate, score
+    return best
 
 
 def tournament(population, scores, rng, size=3):
@@ -408,7 +557,7 @@ def evolve(seed=None, population_size=40, generations=40, elite=2, verbose=False
     something a random search would not.
     """
     rng = random.Random(seed)
-    population = [random_genome(rng) for _ in range(population_size)]
+    population = [viable_genome(rng) for _ in range(population_size)]
     cache = {}
     history = []
     best_genome, best_score = None, float("-inf")

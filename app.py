@@ -61,7 +61,7 @@ def _new_model():
     # replaced (no reachability check, so some levels are unwinnable).
     # board = DemoBoard(tiles={DemoBoard.GOALPIECE: TOTAL_GOAL_ITEMS, DemoBoard.ENDGOAL: 1})
 
-    board = GeneticBoard(population_size=30, generations=25)
+    board = GeneticBoard(population_size=24, generations=18)
     player_start, villain_start = board.get_spawn_positions()
     player = PlayerModel(*player_start)
     villain = Villain(*villain_start, board=board, total_goal_items=TOTAL_GOAL_ITEMS)
