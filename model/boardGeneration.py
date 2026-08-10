@@ -1,6 +1,5 @@
 
 import random
-from player import PlayerModel
 
 class DemoBoard:
     #board generator

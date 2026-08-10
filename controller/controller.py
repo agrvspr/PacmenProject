@@ -1,8 +1,8 @@
 import curses
-from boardGeneration import DemoBoard, BoardState
+from model.boardGeneration import DemoBoard, BoardState
 
 
-from player import PlayerModel
+from model.player import PlayerModel
 
 DIRECTIONS = {
     curses.KEY_UP: (0, -1),

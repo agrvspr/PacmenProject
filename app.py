@@ -18,11 +18,11 @@ import time
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from boardGeneration import DemoBoard  # noqa: F401  (old random generator)
-from board_ga import GeneticBoard
-from player import PlayerModel
-from villain import Villain
-from game_model import GameModel, TOTAL_GOAL_ITEMS
+from model.boardGeneration import DemoBoard  # noqa: F401  (old random generator)
+from model.board_ga import GeneticBoard
+from model.player import PlayerModel
+from model.villain import Villain
+from model.game_model import GameModel, TOTAL_GOAL_ITEMS
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 

@@ -8,7 +8,7 @@ the win/lose rules -- the terminal game and the browser game can never
 disagree about what counts as a win or a catch.
 """
 
-from boardGeneration import DemoBoard
+from model.boardGeneration import DemoBoard
 
 TOTAL_GOAL_ITEMS = 4
 
