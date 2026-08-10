@@ -25,8 +25,6 @@ from villain import Villain
 from controller import Controller, DIRECTIONS, QUIT_KEYS
 from game_model import GameModel, TOTAL_GOAL_ITEMS
 
-TOTAL_GOAL_ITEMS = 3
-
 # How long the input loop waits for a keypress before redrawing. Short enough
 # that the villain's movement looks smooth, long enough not to spin the CPU.
 FRAME_MS = 30

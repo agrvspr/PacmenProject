@@ -10,7 +10,7 @@ disagree about what counts as a win or a catch.
 
 from boardGeneration import DemoBoard
 
-TOTAL_GOAL_ITEMS = 3
+TOTAL_GOAL_ITEMS = 4
 
 
 class GameModel:

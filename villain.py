@@ -226,23 +226,30 @@ class Villain:
     # Seconds between moves, indexed by how many goal items the player has
     # collected. The villain closes in as the player gets closer to escaping,
     # and holds the last value once everything has been picked up.
-    MOVE_PERIODS = (1.0, 0.5, 0.05)
+    MOVE_PERIODS = (1.0, 0.7, 0.4, 0.1)
+    # probability of taking a random action rather than the best-known one
+    EPSILON_LEVELS = (0.3, 0.2, 0.1, 0.05)
 
-    def __init__(self, x, y, board, total_goal_items=3, move_periods=None):
+    def __init__(self, x, y, board, total_goal_items=3, move_periods=None, epsilon_levels=None):
         self.x = x
         self.y = y
         self.board = board
         self.total_goal_items = total_goal_items
         self.move_periods = move_periods or self.MOVE_PERIODS
+        self.epsilon_levels = epsilon_levels or self.EPSILON_LEVELS
         # Set on the first update() so the villain does not fire immediately
         # on a clock that started before the match did.
         self.last_move_time = None
         self.scout = ScoutBrain(board, self, total_goal_items)
-        self.hunter = HunterBrain()
+        self.hunter = HunterBrain(epsilon=self.epsilon_levels[0])
 
     @property
     def pos(self):
         return (self.x, self.y)
+
+    def _collected_items(self):
+        remaining = remaining_items(self.board, self.total_goal_items)
+        return self.total_goal_items - remaining
 
     def move_period(self):
         """
@@ -254,6 +261,15 @@ class Villain:
         remaining = remaining_items(self.board, self.total_goal_items)
         collected = self.total_goal_items - remaining
         return self.move_periods[min(collected, len(self.move_periods) - 1)]
+
+    def _current_epsilon(self):
+        """
+        Hunter's epsilon for the current level, looked up the same way as
+        move_period(). Collecting past the end of the table keeps the final,
+        lowest epsilon rather than running off it.
+        """
+        collected = self._collected_items()
+        return self.epsilon_levels[min(collected, len(self.epsilon_levels) - 1)]
 
     def update(self, player, now):
         """
@@ -290,6 +306,7 @@ class Villain:
             self._chase_directly(player)
             return
 
+        self.hunter.epsilon = self._current_epsilon()
         hint_region = self.scout.get_hint(player)
         state = self.hunter.encode_state((self.x, self.y), hint_region)
         action = self.hunter.choose_action(state)
