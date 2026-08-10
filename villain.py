@@ -228,7 +228,7 @@ class Villain:
     # and holds the last value once everything has been picked up.
     MOVE_PERIODS = (1.0, 0.7, 0.4, 0.1)
     # probability of taking a random action rather than the best-known one
-    EPSILON_LEVELS = (0.3, 0.2, 0.1, 0.05)
+    EPSILON_LEVELS = (0.03, 0.02, 0.01, 0.005)
 
     def __init__(self, x, y, board, total_goal_items=3, move_periods=None, epsilon_levels=None):
         self.x = x
