@@ -3,7 +3,7 @@ import random
 from player import PlayerModel
 
 class DemoBoard:
-    """Simple board generator that randomizes tiles inside a bordered grid."""
+    #board generator
 
     SIZE = 20
     GOALPIECE = "I"
@@ -31,7 +31,7 @@ class DemoBoard:
 
     @classmethod
     def generate_random_board(cls, tiles, size=None, obstacle_ratio=None):
-        """Return a size x size grid with the given tile counts placed randomly."""
+        #returns board with random wall placements
         size = size or cls.SIZE
         obstacle_ratio = cls.DEFAULT_OBSTACLE_RATIO if obstacle_ratio is None else obstacle_ratio
         if size < 3:
@@ -80,7 +80,7 @@ class DemoBoard:
         return grid
 
     def _pick_spawn_positions(self, min_distance):
-        """Pick player/villain spawns on empty cells with at least min Manhattan distance."""
+        #spawns player and villain at a certain distance
         empty_cells = [
             (x, y)
             for y in range(1, self.SIZE - 1)
@@ -117,9 +117,7 @@ class DemoBoard:
         )
 
     def remaining_goal_items(self):
-        """
-        Count GOALPIECE tiles still on the grid.
-        """
+        #check for remaining cheese
         return sum(row.count(self.GOALPIECE) for row in self.grid)
 class BoardState:
     GoalPiecesCollected = sum
