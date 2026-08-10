@@ -1,11 +1,6 @@
 import curses
 from boardGeneration import DemoBoard, BoardState
-"""
-Expected Model interface (adjust to match your actual classes):
-    player.x, player.y      -> current position (ints)
-    player.move(dx, dy)     -> updates player position
-    board.is_walkable(x, y) -> bool, False for walls / out of bounds
-"""
+
 
 from player import PlayerModel
 
@@ -33,11 +28,7 @@ class Controller:
         self.player = player
 
     def handle_key(self, key):
-        """
-        Given a single curses key code, attempt to move the player.
-        Returns True if the player actually moved, False otherwise
-        (invalid key, or move blocked by a wall/boundary).
-        """
+        #checks if key press is valid
         if key not in DIRECTIONS:
             return False
 
@@ -53,11 +44,7 @@ class Controller:
         return True
 
     def run(self,stdscr, render_callback):
-        """
-        Main input loop. render_callback(stdscr) is called once before each
-        key read, so it should draw the current board/player state.
-        Press q to quit.
-        """
+        #input loop
         curses.curs_set(0)
         stdscr.nodelay(False)
  
