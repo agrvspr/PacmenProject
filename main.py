@@ -19,7 +19,8 @@ import curses
 import random
 import time
 
-from boardGeneration import DemoBoard
+from boardGeneration import DemoBoard  # noqa: F401  (old random generator)
+from board_ga import GeneticBoard
 from player import PlayerModel
 from villain import Villain
 from controller import Controller, DIRECTIONS, QUIT_KEYS
@@ -89,7 +90,15 @@ def render(stdscr, model):
 
 
 def run_game(stdscr):
-    board = DemoBoard(tiles={DemoBoard.GOALPIECE: TOTAL_GOAL_ITEMS, DemoBoard.ENDGOAL: 1})
+    # Old random generator -- kept for comparison. It scatters obstacles with
+    # no reachability check, so about 0.6% of its levels have a walled-off
+    # cheese or exit and cannot be won.
+    # board = DemoBoard(tiles={DemoBoard.GOALPIECE: TOTAL_GOAL_ITEMS, DemoBoard.ENDGOAL: 1})
+
+    # Genetic algorithm generator: breeds a level against the fitness function
+    # in board_ga. Takes about a second, and every level it returns is solvable
+    # by construction because entities are placed inside one connected region.
+    board = GeneticBoard(population_size=30, generations=25)
 
     player_start, villain_start = board.get_spawn_positions()
     player = PlayerModel(*player_start)
