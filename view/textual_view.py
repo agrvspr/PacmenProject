@@ -1,13 +1,16 @@
+"""
+Former main, now using app.py since we have a GUI now.
+"""
 import curses
 import random
 import time
 
-from boardGeneration import DemoBoard  # noqa: F401  (old random generator)
-from board_ga import GeneticBoard
-from player import PlayerModel
-from villain import Villain
-from controller import Controller, DIRECTIONS, QUIT_KEYS
-from game_model import GameModel, TOTAL_GOAL_ITEMS
+from model.boardGeneration import DemoBoard  # noqa: F401  (old random generator)
+from model.board_ga import GeneticBoard
+from model.player import PlayerModel
+from model.villain import Villain
+from controller.controller import Controller, DIRECTIONS, QUIT_KEYS
+from model.game_model import GameModel, TOTAL_GOAL_ITEMS
 
 # How long the input loop waits for a keypress before redrawing. Short enough
 # that the villain's movement looks smooth, long enough not to spin the CPU.
@@ -15,7 +18,7 @@ FRAME_MS = 30
 
 
 def _open_cells(board):
-    #empty cells
+    # empty cells
     return [
         (x, y)
         for y in range(board.SIZE)
