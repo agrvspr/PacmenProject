@@ -35,7 +35,7 @@ SIZE = 20                 # matches DemoBoard, border walls included
 TILE = 3                  # each gene decodes to a TILE x TILE block
 TILES_PER_SIDE = (SIZE - 2) // TILE      # 6
 TILE_GENES = TILES_PER_SIDE ** 2         # 36
-CHEESE_COUNT = 3
+CHEESE_COUNT = 4
 PLACEMENT_GENES = CHEESE_COUNT + 1 + 2   # cheese, exit, two spawns
 GENOME_LENGTH = TILE_GENES + PLACEMENT_GENES
 
