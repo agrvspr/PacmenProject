@@ -1,20 +1,3 @@
-"""
-Main entry point that wires the Model (board, player, villain) together with
-the movement Controller and a simple curses-based View.
-
-Rules implemented here (not owned by any single existing file, so they live
-in a small GameModel class):
-  - Player walks a walled grid collecting GOALPIECE ("I") tiles.
-  - Villain hunts the player with its Scout/Hunter split-brain AI, and
-    closes in faster as goal items are collected (see Villain.move_period).
-  - Player wins by collecting every goal item and then stepping onto
-    ENDGOAL ("G").
-  - Player loses the moment it shares a cell with the villain.
-
-Controller.handle_key only knows how to move the player against the board;
-it has no notion of items, the villain, or win/lose. GameModel is the glue
-that runs after every successful player move.
-"""
 import curses
 import random
 import time
@@ -32,7 +15,7 @@ FRAME_MS = 30
 
 
 def _open_cells(board):
-    """All EMPTYSPACE cells -- i.e. not a wall, not a goal item, not the exit."""
+    #empty cells
     return [
         (x, y)
         for y in range(board.SIZE)
@@ -42,7 +25,7 @@ def _open_cells(board):
 
 
 def _pick_start_positions(board):
-    """Pick two distinct random empty cells: one for the player, one for the villain."""
+    #pick two empty cells for player and villain
     cells = _open_cells(board)
     random.shuffle(cells)
     if len(cells) < 2:
