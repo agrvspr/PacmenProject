@@ -1,11 +1,5 @@
 """
 GameModel: the rules glue between Board, PlayerModel, and Villain.
-
-This is the same class defined in main.py, pulled out into its own module
-so it has no dependency on curses. main.py (the terminal game) and app.py
-(the web server) both import it from here, so there is exactly one copy of
-the win/lose rules -- the terminal game and the browser game can never
-disagree about what counts as a win or a catch.
 """
 
 from model.boardGeneration import DemoBoard
@@ -55,10 +49,6 @@ class GameModel:
         """Call this once, right after a successful player move."""
         if self.game_over:
             return
-
-        # Walking into the villain counts. The villain no longer moves as
-        # part of the player's turn, so this is the only place a player-side
-        # collision can be noticed.
         if self._check_caught():
             return
 
@@ -68,7 +58,7 @@ class GameModel:
     def update(self, now):
         """
         Advance the villain's clock. Call this every frame, whether or not
-        the player pressed anything -- the villain hunts on real time now, so
+        the player pressed anything. The villain hunts on real time now, so
         standing still is no longer safe.
         """
         if self.game_over:
