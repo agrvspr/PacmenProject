@@ -18,10 +18,11 @@ import time
 
 from flask import Flask, jsonify, request, send_from_directory
 
-from boardGeneration import DemoBoard
-from player import PlayerModel
-from villain import Villain
-from game_model import GameModel, TOTAL_GOAL_ITEMS
+from model.boardGeneration import DemoBoard  # noqa: F401  (old random generator)
+from model.board_ga import GeneticBoard
+from model.player import PlayerModel
+from model.villain import Villain
+from model.game_model import GameModel, TOTAL_GOAL_ITEMS
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
@@ -56,7 +57,11 @@ def _serialize(model):
 
 
 def _new_model():
-    board = DemoBoard(tiles={DemoBoard.GOALPIECE: TOTAL_GOAL_ITEMS, DemoBoard.ENDGOAL: 1})
+    # Old random generator -- kept for comparison, see board_ga for why it was
+    # replaced (no reachability check, so some levels are unwinnable).
+    # board = DemoBoard(tiles={DemoBoard.GOALPIECE: TOTAL_GOAL_ITEMS, DemoBoard.ENDGOAL: 1})
+
+    board = GeneticBoard(population_size=24, generations=18)
     player_start, villain_start = board.get_spawn_positions()
     player = PlayerModel(*player_start)
     villain = Villain(*villain_start, board=board, total_goal_items=TOTAL_GOAL_ITEMS)

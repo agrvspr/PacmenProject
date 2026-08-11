@@ -1,29 +1,16 @@
 """
-Main entry point that wires the Model (board, player, villain) together with
-the movement Controller and a simple curses-based View.
-
-Rules implemented here (not owned by any single existing file, so they live
-in a small GameModel class):
-  - Player walks a walled grid collecting GOALPIECE ("I") tiles.
-  - Villain hunts the player with its Scout/Hunter split-brain AI, and
-    closes in faster as goal items are collected (see Villain.move_period).
-  - Player wins by collecting every goal item and then stepping onto
-    ENDGOAL ("G").
-  - Player loses the moment it shares a cell with the villain.
-
-Controller.handle_key only knows how to move the player against the board;
-it has no notion of items, the villain, or win/lose. GameModel is the glue
-that runs after every successful player move.
+Former main, now using app.py since we have a GUI now.
 """
 import curses
 import random
 import time
 
-from boardGeneration import DemoBoard
-from player import PlayerModel
-from villain import Villain
-from controller import Controller, DIRECTIONS, QUIT_KEYS
-from game_model import GameModel, TOTAL_GOAL_ITEMS
+from model.boardGeneration import DemoBoard  # noqa: F401  (old random generator)
+from model.board_ga import GeneticBoard
+from model.player import PlayerModel
+from model.villain import Villain
+from controller.controller import Controller, DIRECTIONS, QUIT_KEYS
+from model.game_model import GameModel, TOTAL_GOAL_ITEMS
 
 # How long the input loop waits for a keypress before redrawing. Short enough
 # that the villain's movement looks smooth, long enough not to spin the CPU.
@@ -31,7 +18,7 @@ FRAME_MS = 30
 
 
 def _open_cells(board):
-    """All EMPTYSPACE cells -- i.e. not a wall, not a goal item, not the exit."""
+    # empty cells
     return [
         (x, y)
         for y in range(board.SIZE)
@@ -41,7 +28,7 @@ def _open_cells(board):
 
 
 def _pick_start_positions(board):
-    """Pick two distinct random empty cells: one for the player, one for the villain."""
+    #pick two empty cells for player and villain
     cells = _open_cells(board)
     random.shuffle(cells)
     if len(cells) < 2:
@@ -87,7 +74,15 @@ def render(stdscr, model):
 
 
 def run_game(stdscr):
-    board = DemoBoard(tiles={DemoBoard.GOALPIECE: TOTAL_GOAL_ITEMS, DemoBoard.ENDGOAL: 1})
+    # Old random generator -- kept for comparison. It scatters obstacles with
+    # no reachability check, so about 0.6% of its levels have a walled-off
+    # cheese or exit and cannot be won.
+    # board = DemoBoard(tiles={DemoBoard.GOALPIECE: TOTAL_GOAL_ITEMS, DemoBoard.ENDGOAL: 1})
+
+    # Genetic algorithm generator: breeds a level against the fitness function
+    # in board_ga. Takes about a second, and every level it returns is solvable
+    # by construction because entities are placed inside one connected region.
+    board = GeneticBoard(population_size=24, generations=18)
 
     player_start, villain_start = board.get_spawn_positions()
     player = PlayerModel(*player_start)
