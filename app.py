@@ -4,10 +4,6 @@ player.PlayerModel, villain.Villain, game_model.GameModel) over a small
 JSON API, so a browser page can play against the actual Scout/Hunter
 villain AI instead of a re-implemented stand-in.
 
-No curses here -- curses is a terminal-only dependency and this process
-never touches a terminal screen. main.py (unchanged) is still the
-curses version for playing directly in a terminal.
-
 Run with:
     pip install -r requirements.txt
     python app.py

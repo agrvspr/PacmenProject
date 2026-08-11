@@ -28,7 +28,11 @@ class Controller:
         self.player = player
 
     def handle_key(self, key):
-        #checks if key press is valid
+        """
+        Move the player if key is a direction and the target cell is open.
+        Args: key - a curses key code.
+        Returns: bool True if the player actually moved.
+        """
         if key not in DIRECTIONS:
             return False
 
@@ -44,7 +48,11 @@ class Controller:
         return True
 
     def run(self,stdscr, render_callback):
-        #input loop
+        """
+        Run the main render/input loop until a quit key is pressed.
+        Args: stdscr - curses screen, render_callback - draw function.
+        Returns: None.
+        """
         curses.curs_set(0)
         stdscr.nodelay(False)
  
@@ -68,6 +76,11 @@ if __name__ == "__main__":
             self.y += dy
  
     def render(stdscr):
+        """
+        Draw the board and player onto the curses screen.
+        Args: stdscr - curses screen to draw on.
+        Returns: None.
+        """
         stdscr.clear()
         stdscr.addstr(0, 0, "Arrow keys / WASD to move, q to quit")
         for y in range(board.SIZE):

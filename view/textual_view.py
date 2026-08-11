@@ -5,20 +5,17 @@ import curses
 import random
 import time
 
-from model.boardGeneration import DemoBoard  # noqa: F401  (old random generator)
+from model.boardGeneration import DemoBoard  # noqa: F401
 from model.board_ga import GeneticBoard
 from model.player import PlayerModel
 from model.villain import Villain
 from controller.controller import Controller, DIRECTIONS, QUIT_KEYS
 from model.game_model import GameModel, TOTAL_GOAL_ITEMS
 
-# How long the input loop waits for a keypress before redrawing. Short enough
-# that the villain's movement looks smooth, long enough not to spin the CPU.
 FRAME_MS = 30
 
 
 def _open_cells(board):
-    # empty cells
     return [
         (x, y)
         for y in range(board.SIZE)
@@ -28,7 +25,11 @@ def _open_cells(board):
 
 
 def _pick_start_positions(board):
-    #pick two empty cells for player and villain
+    """
+    Pick two distinct empty cells for the player and the villain.
+    Args: board - board with SIZE and grid attributes.
+    Returns: (player_cell, villain_cell) tuple of (x, y) positions.
+    """
     cells = _open_cells(board)
     random.shuffle(cells)
     if len(cells) < 2:
@@ -39,6 +40,11 @@ def _pick_start_positions(board):
 
 
 def render(stdscr, model):
+    """
+    Draw the status line and visible board onto the curses screen.
+    Args: stdscr - curses screen, model - GameModel to render.
+    Returns: None.
+    """
     board, player, villain = model.board, model.player, model.villain
     max_y, max_x = stdscr.getmaxyx()
 
@@ -47,7 +53,6 @@ def render(stdscr, model):
     if max_y > 0 and max_x > 0:
         stdscr.addstr(0, 0, status)
 
-    # Rows begin at y=2, so usable board rows are whatever still fits below.
     drawable_rows = max(0, max_y - 2)
     visible_rows = min(board.SIZE, drawable_rows)
     visible_cols = min(board.SIZE, max(0, max_x - 1))
@@ -74,14 +79,11 @@ def render(stdscr, model):
 
 
 def run_game(stdscr):
-    # Old random generator -- kept for comparison. It scatters obstacles with
-    # no reachability check, so about 0.6% of its levels have a walled-off
-    # cheese or exit and cannot be won.
-    # board = DemoBoard(tiles={DemoBoard.GOALPIECE: TOTAL_GOAL_ITEMS, DemoBoard.ENDGOAL: 1})
-
-    # Genetic algorithm generator: breeds a level against the fitness function
-    # in board_ga. Takes about a second, and every level it returns is solvable
-    # by construction because entities are placed inside one connected region.
+    """
+    Set up a fresh game and run the curses input/render loop until quit.
+    Args: stdscr - curses screen.
+    Returns: None.
+    """
     board = GeneticBoard(population_size=24, generations=18)
 
     player_start, villain_start = board.get_spawn_positions()
@@ -92,9 +94,6 @@ def run_game(stdscr):
     model = GameModel(board, player, villain, TOTAL_GOAL_ITEMS)
 
     curses.curs_set(0)
-    # Wait at most FRAME_MS for a keypress instead of blocking on one, so the
-    # loop keeps spinning and the villain's clock keeps running while the
-    # player is thinking. getch() returns -1 when nothing was pressed.
     stdscr.timeout(FRAME_MS)
 
     while True:
@@ -105,7 +104,6 @@ def run_game(stdscr):
             break
 
         if model.game_over:
-            # Once the game has ended, only quitting does anything.
             continue
 
         if key in DIRECTIONS and controller.handle_key(key):
