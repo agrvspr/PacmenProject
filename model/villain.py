@@ -208,7 +208,7 @@ class Villain:
     OFF_HINT_PENALTY = -0.5
     BLOCKED_PENALTY = -1.0
     MOVE_PERIODS = (1.0, 0.7, 0.4, 0.1)
-    EPSILON_LEVELS = (0.03, 0.02, 0.01, 0.005)
+    EPSILON_LEVELS = (0.3, 0.15, 0.07, 0.0)
 
     def __init__(self, x, y, board, total_goal_items=3, move_periods=None, epsilon_levels=None):
         self.x = x
