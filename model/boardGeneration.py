@@ -1,8 +1,7 @@
-
 import random
 
 class DemoBoard:
-    #board generator
+    """Board generator."""
 
     SIZE = 20
     GOALPIECE = "I"
@@ -30,7 +29,11 @@ class DemoBoard:
 
     @classmethod
     def generate_random_board(cls, tiles, size=None, obstacle_ratio=None):
-        #returns board with random wall placements
+        """
+        Build a bordered grid with tiles and random wall obstacles placed.
+        Args: tiles - dict of tile char to count, size, obstacle_ratio.
+        Returns: 2D list grid of tile characters.
+        """
         size = size or cls.SIZE
         obstacle_ratio = cls.DEFAULT_OBSTACLE_RATIO if obstacle_ratio is None else obstacle_ratio
         if size < 3:
@@ -79,7 +82,11 @@ class DemoBoard:
         return grid
 
     def _pick_spawn_positions(self, min_distance):
-        #spawns player and villain at a certain distance
+        """
+        Pick player and villain spawns at least min_distance apart.
+        Args: min_distance - minimum required Manhattan distance.
+        Returns: (player_cell, villain_cell) tuple of (x, y) positions.
+        """
         empty_cells = [
             (x, y)
             for y in range(1, self.SIZE - 1)
@@ -116,10 +123,13 @@ class DemoBoard:
         )
 
     def remaining_goal_items(self):
-        #check for remaining cheese
+        """
+        Count GOALPIECE tiles still on the grid.
+        Args: none.
+        Returns: int count of remaining goal items.
+        """
         return sum(row.count(self.GOALPIECE) for row in self.grid)
 class BoardState:
     GoalPiecesCollected = sum
     GameStarted = False
     FinalGoalActive = False
-

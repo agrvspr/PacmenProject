@@ -14,12 +14,9 @@ def _sign(n):
 
 def remaining_items(board, total):
     """
-    How many goal items are still on the board.
-
-    The board does not expose this yet, so fall back to `total` (nothing
-    collected) rather than crashing. Delete the fallback once the board
-    grows a remaining_goal_items() method -- this is the single place the
-    villain asks, so there is only one name to agree on.
+    Count goal items remaining on the board, falling back to total.
+    Args: board, total - fallback count if board lacks the method.
+    Returns: int number of goal items still present.
     """
     getter = getattr(board, "remaining_goal_items", None)
     return total if getter is None else getter()
@@ -50,13 +47,9 @@ class Node:
     (x, y) grid state with a board instead of a Level with player health.
     """
     def __init__(self, state, board, cost, path=None):
-        self.state = state  # (x, y)
-        self.board = board  # so get_neighbors() needs no arguments, same as theirs
-        self.cost = cost    # number of steps taken from start to reach this state
-        # NOTE: default is None, not [], to avoid the classic Python mutable-
-        # default-argument bug (a `path=[]` default is shared across every
-        # call that doesn't pass path explicitly, and can leak state between
-        # unrelated Node instances).
+        self.state = state
+        self.board = board
+        self.cost = cost
         self.path = path if path is not None else []
 
     def is_goal(self, goal):
@@ -81,15 +74,18 @@ class ScoutBrain:
         self.min_hint_size = min_hint_size
 
     def _heuristic(self, a, b):
-        """Manhattan distance - admissible since movement is cardinal-only."""
+        """
+        Compute Manhattan distance between two points (admissible heuristic).
+        Args: a, b - (x, y) tuples.
+        Returns: int Manhattan distance.
+        """
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
     def find_path(self, player):
         """
-        A* from the villain's current position to the player's, using
-        Manhattan distance as the heuristic. Returns the full route
-        including the villain's own cell at index 0, or None if the player
-        cannot be reached.
+        Run A* from the villain to the player using Manhattan distance heuristic.
+        Args: player - object with x, y attributes.
+        Returns: list of (x,y) cells from villain to player, or None if unreachable.
         """
         start = (self.villain.x, self.villain.y)
         goal = (player.x, player.y)
@@ -110,8 +106,6 @@ class ScoutBrain:
                     return path
 
                 for move in node.get_neighbors():
-                    # len(path) is the step count from start to `move`, since
-                    # path already holds every cell up to and including node.
                     new_node = Node(move, self.board, len(path), path)
                     pq.push(new_node.cost + self._heuristic(move, goal), new_node)
 
@@ -119,8 +113,9 @@ class ScoutBrain:
 
     def current_hint_size(self):
         """
-        Returns the current hint size based on how many goal items have been collected.
-        The more items collected, the smaller the hint size.
+        Compute the hint window size, which shrinks as more items are collected.
+        Args: none.
+        Returns: int hint size, clamped to min_hint_size.
         """
         remaining = remaining_items(self.board, self.total_goal_items)
         collected_items = self.total_goal_items - remaining
@@ -128,10 +123,9 @@ class ScoutBrain:
 
     def get_hint(self, player):
         """
-        The next few cells of the A* route toward the player, trimmed to
-        current_hint_size(). The villain's own cell is dropped, so the first
-        entry is where the Scout would step next. Empty when the player is
-        unreachable, which leaves the Hunter to guess.
+        Return the next few cells of the A* path toward the player.
+        Args: player - object with x, y attributes.
+        Returns: list of (x,y) cells, empty if player is unreachable.
         """
         path = self.find_path(player)
         if not path or len(path) < 2:
@@ -154,19 +148,9 @@ class HunterBrain:
 
     def encode_state(self, villain_pos, hint_region):
         """
-        Turn villain_pos and hint_region into a hashable state for Q-learning.
-
-        Two directions, both as compass signs: the Scout's immediate next
-        step, and the furthest cell it revealed. The near direction has to be
-        here because that is what the reward pays out on; the far one gives
-        the Hunter a sense of where the route is heading. In a straight
-        corridor they agree, but around a corner the hint may run down and
-        then east, and a state built on only one of them cannot tell that
-        case apart from a straight run.
-
-        Deliberately coarse otherwise: encoding absolute coordinates would
-        give one state per cell, so the Hunter would have to relearn the same
-        lesson in every corridor.
+        Encode villain position and hint region into a hashable Q-learning state.
+        Args: villain_pos (x,y), hint_region - list of (x,y) cells.
+        Returns: tuple state usable as a Q-table key.
         """
         if not hint_region:
             return (0, 0, 0, 0, False)
@@ -182,9 +166,9 @@ class HunterBrain:
 
     def choose_action(self, state):
         """
-        Epsilon-greedy: explore at random with probability epsilon, else take
-        the best known action, breaking ties randomly so the Hunter does not
-        always favour whichever direction happens to come first.
+        Pick an action via epsilon-greedy selection over the Q-table.
+        Args: state - hashable state key.
+        Returns: action string, one of ACTIONS' keys.
         """
         self.last_state = state
 
@@ -200,8 +184,9 @@ class HunterBrain:
 
     def update(self, reward, next_state):
         """
-        Standard Q-learning update on the action returned by the last
-        choose_action(). Does nothing if no action has been taken yet.
+        Apply a Q-learning update for the last chosen action.
+        Args: reward - float reward, next_state - resulting state.
+        Returns: None; does nothing if no prior action exists.
         """
         if self.last_state is None or self.last_action is None:
             return
@@ -217,17 +202,12 @@ class Villain:
     Villian model. Nefarious actions will be committed.
     """
 
-    CATCH_REWARD = 10.0        # catching the player dwarfs any single step
-    ON_HINT_STEP_REWARD = 1.0  # stepped exactly where the Scout pointed
-    ON_HINT_REWARD = 0.5       # stepped somewhere further along the hint
-    OFF_HINT_PENALTY = -0.5    # legal move, but ignored the hint
-    BLOCKED_PENALTY = -1.0     # walked into a wall
-
-    # Seconds between moves, indexed by how many goal items the player has
-    # collected. The villain closes in as the player gets closer to escaping,
-    # and holds the last value once everything has been picked up.
+    CATCH_REWARD = 10.0
+    ON_HINT_STEP_REWARD = 1.0
+    ON_HINT_REWARD = 0.5
+    OFF_HINT_PENALTY = -0.5
+    BLOCKED_PENALTY = -1.0
     MOVE_PERIODS = (1.0, 0.7, 0.4, 0.1)
-    # probability of taking a random action rather than the best-known one
     EPSILON_LEVELS = (0.03, 0.02, 0.01, 0.005)
 
     def __init__(self, x, y, board, total_goal_items=3, move_periods=None, epsilon_levels=None):
@@ -237,8 +217,6 @@ class Villain:
         self.total_goal_items = total_goal_items
         self.move_periods = move_periods or self.MOVE_PERIODS
         self.epsilon_levels = epsilon_levels or self.EPSILON_LEVELS
-        # Set on the first update() so the villain does not fire immediately
-        # on a clock that started before the match did.
         self.last_move_time = None
         self.scout = ScoutBrain(board, self, total_goal_items)
         self.hunter = HunterBrain(epsilon=self.epsilon_levels[0])
@@ -253,10 +231,9 @@ class Villain:
 
     def move_period(self):
         """
-        Seconds between moves, looked up by how many goal items have been
-        collected so far (read live from the board). Collecting past the end
-        of the table keeps the final, fastest period rather than running off
-        it.
+        Look up seconds between moves based on items collected so far.
+        Args: none.
+        Returns: float seconds, clamped to the fastest table entry.
         """
         remaining = remaining_items(self.board, self.total_goal_items)
         collected = self.total_goal_items - remaining
@@ -264,22 +241,18 @@ class Villain:
 
     def _current_epsilon(self):
         """
-        Hunter's epsilon for the current level, looked up the same way as
-        move_period(). Collecting past the end of the table keeps the final,
-        lowest epsilon rather than running off it.
+        Look up the Hunter's epsilon based on items collected so far.
+        Args: none.
+        Returns: float epsilon, clamped to the lowest table entry.
         """
         collected = self._collected_items()
         return self.epsilon_levels[min(collected, len(self.epsilon_levels) - 1)]
 
     def update(self, player, now):
         """
-        Move the villain if its period has elapsed, at most one cell.
-
-        `now` is passed in rather than read from the clock in here, so a test
-        or a training run can drive the villain on a fake clock as fast as it
-        likes instead of waiting in real time.
-
-        Returns True if the player was caught on this move.
+        Advance the villain's move clock, moving at most once per call.
+        Args: player - object with x, y attributes, now - current time.
+        Returns: bool True if the player was caught this move.
         """
         if self.last_move_time is None:
             self.last_move_time = now
@@ -294,13 +267,9 @@ class Villain:
 
     def _take_single_move(self, player):
         """
-        One full turn for the villain.
-
-        Once every goal item is gone there's nothing left for the Scout to
-        withhold, so the villain drops the hint/Hunter split and just steps
-        along the shortest path straight at the player -- see
-        _chase_directly(). Until then, it's the usual hint -> Hunter action
-        -> legality check -> reward -> Hunter learning.
+        Execute one villain turn: chase directly, or hint-guided Hunter move.
+        Args: player - object with x, y attributes.
+        Returns: None.
         """
         if remaining_items(self.board, self.total_goal_items) == 0:
             self._chase_directly(player)
@@ -325,34 +294,27 @@ class Villain:
 
     def _chase_directly(self, player):
         """
-        Full-information chase, used once all goal items are collected: the
-        villain now knows exactly where the player is at all times, so it
-        takes the next step of the shortest A* route to them every turn.
-        There's no hint to ration and no action for the Hunter to choose, so
-        no reward is computed and no Q-learning update happens here -- the
-        chase is deterministic, not learned.
+        Step along the shortest path straight at the player (no hint/Hunter).
+        Args: player - object with x, y attributes.
+        Returns: None.
         """
         path = self.scout.find_path(player)
         if path and len(path) >= 2:
             self.x, self.y = path[1]
 
     def distance_to(self, player):
-        """Manhattan distance from the villain's current position to the player."""
+        """
+        Compute Manhattan distance from the villain to the player.
+        Args: player - object with x, y attributes.
+        Returns: int Manhattan distance.
+        """
         return abs(self.x - player.x) + abs(self.y - player.y)
 
     def _compute_reward(self, moved, hint_region, player):
         """
-        Rewards the villain for following the Scout's hint, and penalizes it
-        for a blocked move or for wandering off the hint.
-
-        Scoring the hint rather than the true distance to the player is what
-        makes the two-brain split real: the Hunter never sees where the
-        player actually is, so the only way to earn reward is to learn that
-        the Scout's window is worth trusting. Rewarding true distance would
-        hand the Hunter the answer directly and leave the Scout decorative.
-
-        moved:       whether the move was legal and applied
-        hint_region: the cells the Scout revealed BEFORE this move
+        Compute the Hunter's reward for its last move based on the hint.
+        Args: moved - bool, hint_region - list of (x,y), player - object.
+        Returns: float reward value.
         """
         if self.caught_player(player):
             return self.CATCH_REWARD
@@ -360,8 +322,6 @@ class Villain:
         if not moved:
             return self.BLOCKED_PENALTY
 
-        # No hint means the player is unreachable, so there is nothing to
-        # follow and nothing to judge the move against.
         if not hint_region:
             return 0.0
 
@@ -373,6 +333,8 @@ class Villain:
 
     def caught_player(self, player):
         """
-        Check if the villain has caught the player.
+        Check if the villain occupies the same cell as the player.
+        Args: player - object with x, y attributes.
+        Returns: bool True if caught.
         """
         return (self.x, self.y) == (player.x, player.y)

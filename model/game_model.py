@@ -35,9 +35,9 @@ class GameModel:
 
     def _check_caught(self):
         """
-        The villain wins by sharing a cell with the player. Checked both
-        after the player moves and after the villain does, since either one
-        can be the side that closes the gap.
+        Check whether the villain shares a cell with the player.
+        Args: none.
+        Returns: bool True if caught; also sets game_over/won.
         """
         if self.villain.caught_player(self.player):
             self.game_over = True
@@ -46,7 +46,11 @@ class GameModel:
         return False
 
     def on_player_moved(self):
-        """Call this once, right after a successful player move."""
+        """
+        Run collection/win/catch checks after a successful player move.
+        Args: none.
+        Returns: None.
+        """
         if self.game_over:
             return
         if self._check_caught():
@@ -57,9 +61,9 @@ class GameModel:
 
     def update(self, now):
         """
-        Advance the villain's clock. Call this every frame, whether or not
-        the player pressed anything. The villain hunts on real time now, so
-        standing still is no longer safe.
+        Advance the villain's clock and re-check for a catch.
+        Args: now - current time, passed through to villain.update().
+        Returns: None.
         """
         if self.game_over:
             return

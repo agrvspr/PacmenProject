@@ -1,8 +1,8 @@
-#Human controller player
+"""Human-controlled player position and movement."""
 
 
 class PlayerModel:
-    #player location and control
+    """Player location and control."""
 
     def __init__(self, x, y):
         self.x = x
@@ -16,14 +16,22 @@ class PlayerModel:
         return (self.x, self.y)
 
     def move(self, dx, dy):
-        #applies movement delta
+        """
+        Apply a movement delta to the player's position.
+        Args: dx, dy - integer deltas to add to x, y.
+        Returns: None.
+        """
         self.prev_pos = self.pos
         self.x += dx
         self.y += dy
         self.steps_taken += 1
 
     def reset(self, x=None, y=None):
-        #restarts game
+        """
+        Reset the player to the start position, optionally moving the start.
+        Args: x, y - new start coordinates, or None to reuse the current start.
+        Returns: None.
+        """
         if (x is None) != (y is None):
             raise ValueError("reset() requires both x and y, or neither")
         if x is not None:
