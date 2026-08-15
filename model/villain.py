@@ -66,12 +66,12 @@ class ScoutBrain:
     The smart one, that knows where the player is and the whole board.
     Computes a path to the player through A* and only reveals a small window to the dumb brain.
     """
-    def __init__(self, board, villain, total_goal_items, hint_size=5, min_hint_size=1):
+    def __init__(self, board, villain, total_goal_items, hint_size=5, max_hint_size=None):
         self.board = board
         self.villain = villain
         self.total_goal_items = total_goal_items
         self.hint_size = hint_size
-        self.min_hint_size = min_hint_size
+        self.max_hint_size = max_hint_size if max_hint_size is not None else hint_size + total_goal_items
 
     def _heuristic(self, a, b):
         """
@@ -113,13 +113,13 @@ class ScoutBrain:
 
     def current_hint_size(self):
         """
-        Compute the hint window size, which shrinks as more items are collected.
+        Compute the hint window size, which grows as more items are collected.
         Args: none.
-        Returns: int hint size, clamped to min_hint_size.
+        Returns: int hint size
         """
-        remaining = remaining_items(self.board, self.total_goal_items)
-        collected_items = self.total_goal_items - remaining
-        return max(self.hint_size - collected_items, self.min_hint_size)
+        collected_items = self.total_goal_items - self.board.remaining_goal_items()
+        hint_size = min(self.hint_size + collected_items, self.max_hint_size)
+        return hint_size
 
     def get_hint(self, player):
         """
@@ -208,7 +208,7 @@ class Villain:
     OFF_HINT_PENALTY = -0.5
     BLOCKED_PENALTY = -1.0
     MOVE_PERIODS = (1.0, 0.7, 0.4, 0.1)
-    EPSILON_LEVELS = (0.3, 0.15, 0.07, 0.0)
+    EPSILON_LEVELS = (0.2, 0.1, 0.05, 0.0)
 
     def __init__(self, x, y, board, total_goal_items=3, move_periods=None, epsilon_levels=None):
         self.x = x
